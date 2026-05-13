@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>China Town Control Center</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-gate" id="loginGate" aria-label="Passwortschutz">
+      <div class="login-card">
+        <div class="brand-seal small">CT</div>
+        <p class="hero-kicker">China Town Control</p>
+        <h2>Zugang</h2>
+        <form id="loginForm">
+          <label>
+            Passwort
+            <input id="passwordInput" type="password" autocomplete="current-password" required />
+          </label>
+          <p class="login-error" id="loginError" role="alert"></p>
+          <button class="primary-button" type="submit">Betreten</button>
+        </form>
+      </div>
+    </section>
+    <div class="cursor-glow" aria-hidden="true"></div>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">China Town Verwaltung</p>
+          <h1>China Town Control</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-button" id="exportButton" type="button" title="Daten exportieren">
+            Export
+          </button>
+          <label class="ghost-button file-button" title="Daten importieren">
+            Import
+            <input id="importInput" type="file" accept="application/json" />
+          </label>
+        </div>
+      </header>
+
+      <section class="hero-section" aria-label="China Town Intro">
+        <div class="hero-smoke smoke-one"></div>
+        <div class="hero-smoke smoke-two"></div>
+        <div class="dragon-mark" aria-hidden="true"></div>
+        <div class="lantern-row" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="hero-content">
+          <div class="brand-seal">CT</div>
+          <p class="hero-kicker">VIPs, Kooperationen, Bestellungen & Reservierungen</p>
+          <h2>China Town</h2>
+          <p class="hero-line">China Town - ist mit dem Essen da.</p>
+          <div class="hero-actions">
+            <a href="#entryForm" data-type-jump="VIP">VIP eintragen</a>
+            <a href="#entryForm" data-type-jump="Bestellung">Bestellen</a>
+            <a href="#entryForm" data-type-jump="Reservierung">Reservieren</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="Uebersicht">
+        <article class="metric">
+          <span>Aktive VIPs</span>
+          <strong id="activeVipCount">0</strong>
+        </article>
+        <article class="metric">
+          <span>Aktive Kooperationen</span>
+          <strong id="activePartnerCount">0</strong>
+        </article>
+        <article class="metric warning">
+          <span>Offene Bestellungen</span>
+          <strong id="orderCount">0</strong>
+        </article>
+        <article class="metric">
+          <span>Reservierungen</span>
+          <strong id="reservationCount">0</strong>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <form class="entry-form" id="entryForm">
+          <div class="form-head">
+            <h2>Eintrag</h2>
+            <button class="secondary-button" id="resetButton" type="button">Neu</button>
+          </div>
+
+          <input id="entryId" type="hidden" />
+
+          <label>
+            Typ
+            <select id="typeInput">
+              <option value="VIP">VIP Kunde</option>
+              <option value="Kooperation">Kooperation</option>
+              <option value="Bestellung">Bestellung</option>
+              <option value="Reservierung">Tischreservierung</option>
+            </select>
+          </label>
+
+          <label>
+            Name
+            <input id="nameInput" type="text" placeholder="Kunde, Firma, Partner oder Gast" required />
+          </label>
+
+          <div class="vip-fields" id="vipFields">
+            <label>
+              VIP Paket
+              <select id="packageInput">
+                <option value="Silber">Silber VIP Ticket</option>
+                <option value="Gold">Gold VIP Ticket</option>
+              </select>
+            </label>
+
+            <label>
+              Laufzeit Monate
+              <input id="monthsInput" type="number" min="1" max="12" step="1" value="1" />
+            </label>
+
+            <div class="package-info" id="packageInfo"></div>
+          </div>
+
+          <div class="order-fields" id="orderFields">
+            <label>
+              Bestellung
+              <textarea id="orderItemsInput" rows="4" placeholder="z. B. 2x Nudeln, 1x Ente, 3x Cola"></textarea>
+            </label>
+
+            <div class="split">
+              <label>
+                Abholzeit / Lieferzeit
+                <input id="orderTimeInput" type="datetime-local" />
+              </label>
+              <label>
+                Betrag
+                <input id="orderPriceInput" type="text" placeholder="z. B. 45.000$" />
+              </label>
+            </div>
+          </div>
+
+          <div class="reservation-fields" id="reservationFields">
+            <div class="split">
+              <label>
+                Datum & Uhrzeit
+                <input id="reservationTimeInput" type="datetime-local" />
+              </label>
+              <label>
+                Personen
+                <input id="guestCountInput" type="number" min="1" max="30" step="1" value="2" />
+              </label>
+            </div>
+
+            <label>
+              Tisch / Bereich
+              <input id="tableInput" type="text" placeholder="z. B. VIP Lounge, Tisch 3" />
+            </label>
+
+            <label>
+              Wunsch / Anlass
+              <input id="occasionInput" type="text" placeholder="Geburtstag, Business, Date Night" />
+            </label>
+          </div>
+
+          <div class="coop-fields" id="coopFields">
+            <label>
+              Codewort
+              <input id="codeWordInput" type="text" placeholder="z. B. china" />
+            </label>
+
+            <label>
+              Vorteile / Absprache
+              <textarea id="advantagesInput" rows="3" placeholder="Welche Vorteile bekommt der Partner oder China Town?"></textarea>
+            </label>
+
+            <label>
+              Naechster Reminder
+              <input id="reminderInput" type="date" />
+            </label>
+          </div>
+
+          <div class="split">
+            <label>
+              Start
+              <input id="startInput" type="date" required />
+            </label>
+            <label>
+              Ablauf
+              <input id="endInput" type="date" required />
+            </label>
+          </div>
+
+          <label>
+            Status
+            <select id="statusInput">
+              <option value="Aktiv">Aktiv</option>
+              <option value="Offen">Offen</option>
+              <option value="In Arbeit">In Arbeit</option>
+              <option value="Fertig">Fertig</option>
+              <option value="Abgeholt">Abgeholt</option>
+              <option value="Bestaetigt">Bestaetigt</option>
+              <option value="Erschienen">Erschienen</option>
+              <option value="No Show">No Show</option>
+              <option value="Erledigt">Erledigt</option>
+              <option value="Pausiert">Pausiert</option>
+              <option value="Storniert">Storniert</option>
+              <option value="Abgelaufen">Abgelaufen</option>
+            </select>
+          </label>
+
+          <label>
+            Kontakt
+            <input id="contactInput" type="text" placeholder="Discord, Forum, Telefonnummer" />
+          </label>
+
+          <label>
+            Notizen
+            <textarea id="notesInput" rows="4" placeholder="Zahlstatus, Sonderrechte, interne Hinweise"></textarea>
+          </label>
+
+          <button class="primary-button" type="submit">Speichern</button>
+        </form>
+
+        <section class="records-panel">
+          <div class="tabbar" aria-label="Bereiche">
+            <button class="tab-button active" type="button" data-tab="Heute">Heute</button>
+            <button class="tab-button" type="button" data-tab="VIP">VIPs</button>
+            <button class="tab-button" type="button" data-tab="Kooperation">Kooperationen</button>
+            <button class="tab-button" type="button" data-tab="Bestellung">Bestellungen</button>
+            <button class="tab-button" type="button" data-tab="Reservierung">Reservierungen</button>
+            <button class="tab-button" type="button" data-tab="Archiv">Archiv</button>
+          </div>
+          <div class="panel-tools">
+            <div class="search-field">
+              <span aria-hidden="true">S</span>
+              <input id="searchInput" type="search" placeholder="Suchen" />
+            </div>
+            <select id="filterInput" aria-label="Filter">
+              <option value="Alle">Alle</option>
+              <option value="VIP">VIP</option>
+              <option value="Kooperation">Kooperation</option>
+              <option value="Bestellung">Bestellung</option>
+              <option value="Reservierung">Reservierung</option>
+              <option value="Reminder">Reminder</option>
+              <option value="Bald">Bald ablaufend</option>
+              <option value="Abgelaufen">Abgelaufen</option>
+              <option value="Offen">Offen</option>
+              <option value="In Arbeit">In Arbeit</option>
+              <option value="Fertig">Fertig</option>
+              <option value="Abgeholt">Abgeholt</option>
+              <option value="Bestaetigt">Bestaetigt</option>
+              <option value="Erschienen">Erschienen</option>
+              <option value="No Show">No Show</option>
+              <option value="Erledigt">Erledigt</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Typ</th>
+                  <th>Status</th>
+                  <th>Datum</th>
+                  <th>Details</th>
+                  <th>Check</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" id="emptyState">
+            <strong>Keine Eintraege</strong>
+            <span>Lege links den ersten China-Town-Eintrag an.</span>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="rowTemplate">
+      <tr>
+        <td>
+          <button class="name-button" type="button"></button>
+          <small></small>
+        </td>
+        <td><span class="tag"></span></td>
+        <td><span class="status-pill"></span></td>
+        <td class="date-cell"></td>
+        <td class="benefit-cell"></td>
+        <td class="pickup-cell"></td>
+        <td class="row-actions">
+          <button class="icon-button edit-button" type="button" title="Bearbeiten">Edit</button>
+          <button class="icon-button delete-button" type="button" title="Loeschen">X</button>
+        </td>
+      </tr>
+    </template>
+
+    <script src="script.js"></script>
+  </body>
+</html>
