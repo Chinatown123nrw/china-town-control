@@ -1,5 +1,8 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
 const storageKey = "ct-control-center";
 const legacyStorageKey = "ct-vip-kooperationen";
+const localCacheKey = "ct-control-cache";
 const businessTypes = ["VIP", "Kooperation", "Bestellung", "Reservierung"];
 
 const vipPackages = {
@@ -58,15 +61,19 @@ const exportButton = document.querySelector("#exportButton");
 const importInput = document.querySelector("#importInput");
 const cursorGlow = document.querySelector(".cursor-glow");
 const tabButtons = document.querySelectorAll("[data-tab]");
+const syncStatus = document.querySelector("#syncStatus");
 const loginGate = document.querySelector("#loginGate");
 const loginForm = document.querySelector("#loginForm");
 const passwordInput = document.querySelector("#passwordInput");
 const loginError = document.querySelector("#loginError");
 
-let records = loadRecords().map(normalizeRecord);
+let records = [];
 let activeTab = "Heute";
 const accessPassword = "ChinaSantiNRW";
 const accessKey = "ct-control-access";
+let supabaseClient = null;
+let syncMode = "local";
+let recordsLoaded = false;
 
 function hasAccess() {
   return sessionStorage.getItem(accessKey) === "ok";
@@ -84,18 +91,121 @@ function lockApp() {
   passwordInput.focus();
 }
 
-function loadRecords() {
+function loadCachedRecords() {
   try {
-    const current = localStorage.getItem(storageKey);
-    const legacy = localStorage.getItem(legacyStorageKey);
+    const current = localStorage.getItem(localCacheKey);
+    const legacy = localStorage.getItem(storageKey) || localStorage.getItem(legacyStorageKey);
     return JSON.parse(current || legacy || "[]");
   } catch {
     return [];
   }
 }
 
-function saveRecords() {
-  localStorage.setItem(storageKey, JSON.stringify(records));
+function saveCachedRecords() {
+  localStorage.setItem(localCacheKey, JSON.stringify(records));
+}
+
+async function loadSupabaseConfig() {
+  const response = await fetch("/api/config", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Missing Supabase config");
+  }
+
+  const config = await response.json();
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    throw new Error("Incomplete Supabase config");
+  }
+
+  return config;
+}
+
+async function initDataLayer() {
+  try {
+    const config = await loadSupabaseConfig();
+    supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
+    syncMode = "supabase";
+    setSyncStatus("Sync: Live");
+  } catch {
+    supabaseClient = null;
+    syncMode = "local";
+    setSyncStatus("Sync: Local");
+  }
+}
+
+function setSyncStatus(text) {
+  if (syncStatus) {
+    syncStatus.textContent = text;
+  }
+}
+
+async function loadRecords() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("control_records")
+        .select("id,data,updated_at")
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+
+      records = (data || []).map((row) => normalizeRecord({ ...(row.data || {}), id: row.id }));
+
+      if (records.length === 0) {
+        const fallbackRecords = loadCachedRecords().map(normalizeRecord);
+        if (fallbackRecords.length > 0) {
+          records = fallbackRecords;
+          for (const record of records) {
+            await persistRecord(record);
+          }
+        }
+      }
+
+      saveCachedRecords();
+      return;
+    } catch {
+      setSyncStatus("Sync: Local");
+      syncMode = "local";
+      supabaseClient = null;
+    }
+  }
+
+  records = loadCachedRecords().map(normalizeRecord);
+}
+
+async function persistRecord(record) {
+  saveCachedRecords();
+
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { error } = await supabaseClient.from("control_records").upsert(
+    [
+      {
+        id: record.id,
+        data: record,
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "id" },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function deleteRemoteRecord(id) {
+  saveCachedRecords();
+
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { error } = await supabaseClient.from("control_records").delete().eq("id", id);
+  if (error) {
+    throw error;
+  }
 }
 
 function todayIso() {
@@ -426,9 +536,9 @@ function renderPickupButtons(container, record) {
       : `Woche ${index + 1} offen`;
     button.setAttribute("aria-label", button.title);
     button.addEventListener("click", () => {
-      record.pickupDates[index] = record.pickupDates[index] ? "" : todayIso();
-      saveRecords();
-      render();
+      const nextDates = record.pickupDates.slice();
+      nextDates[index] = nextDates[index] ? "" : todayIso();
+      void updateRecord(record.id, { pickupDates: nextDates });
     });
 
     const dateLabel = document.createElement("span");
@@ -490,22 +600,31 @@ function renderQuickStatus(container, record, statuses) {
   container.append(group);
 }
 
-function updateRecord(id, patch) {
-  records = records.map((record) => (record.id === id ? normalizeRecord({ ...record, ...patch }) : record));
-  saveRecords();
+async function updateRecord(id, patch) {
+  const current = records.find((record) => record.id === id) || {};
+  const nextRecord = normalizeRecord({ ...current, ...patch, id });
+
+  records = records.map((record) => (record.id === id ? nextRecord : record));
+
+  try {
+    await persistRecord(nextRecord);
+  } catch {
+    setSyncStatus("Sync: Error");
+  }
+
   render();
 }
 
 function extendVip(record, months) {
   const nextMonths = Math.min(12, record.months + months);
-  updateRecord(record.id, {
+  void updateRecord(record.id, {
     months: nextMonths,
     end: vipEndIso(record.start, nextMonths),
   });
 }
 
 function resetVipMonth(record) {
-  updateRecord(record.id, {
+  void updateRecord(record.id, {
     pickupDates: ["", "", "", ""],
     start: todayIso(),
     end: vipEndIso(todayIso(), record.months),
@@ -627,12 +746,17 @@ function resetForm(type = "VIP") {
   syncTypeFields();
 }
 
-function deleteRecord(id) {
+async function deleteRecord(id) {
   const record = records.find((item) => item.id === id);
   if (!record || !confirm(`${record.name} loeschen?`)) return;
 
   records = records.filter((item) => item.id !== id);
-  saveRecords();
+  try {
+    await deleteRemoteRecord(id);
+  } catch {
+    setSyncStatus("Sync: Error");
+  }
+
   render();
   if (fields.id.value === id) resetForm();
 }
@@ -668,7 +792,7 @@ function collectFormRecord() {
   });
 }
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const nextRecord = collectFormRecord();
@@ -676,7 +800,12 @@ form.addEventListener("submit", (event) => {
     ? records.map((record) => (record.id === nextRecord.id ? nextRecord : record))
     : [...records, nextRecord];
 
-  saveRecords();
+  try {
+    await persistRecord(nextRecord);
+  } catch {
+    setSyncStatus("Sync: Error");
+  }
+
   resetForm(nextRecord.type);
   render();
 });
@@ -749,7 +878,20 @@ importInput.addEventListener("change", async () => {
     if (!Array.isArray(imported)) throw new Error("Invalid data");
 
     records = imported.filter((record) => record.id && record.name && record.type).map(normalizeRecord);
-    saveRecords();
+    saveCachedRecords();
+    if (supabaseClient) {
+      const { data: existingRows } = await supabaseClient.from("control_records").select("id");
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        await supabaseClient.from("control_records").delete().in(
+          "id",
+          existingRows.map((row) => row.id),
+        );
+      }
+
+      for (const record of records) {
+        await persistRecord(record);
+      }
+    }
     resetForm();
     render();
   } catch {
@@ -759,12 +901,24 @@ importInput.addEventListener("change", async () => {
   }
 });
 
-if (hasAccess()) {
-  unlockApp();
-} else {
-  lockApp();
+async function boot() {
+  await initDataLayer();
+  await loadRecords();
+
+  if (hasAccess()) {
+    unlockApp();
+  } else {
+    lockApp();
+  }
+
+  resetForm();
+  render();
+
+  if (supabaseClient) {
+    setInterval(() => {
+      void loadRecords().then(() => render()).catch(() => {});
+    }, 20000);
+  }
 }
 
-resetForm();
-saveRecords();
-render();
+void boot();
