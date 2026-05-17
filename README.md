@@ -1,6 +1,6 @@
-# China Town Control Center
+# China Town VIP & Kooperation Control
 
-Statische Website fuer VIPs, Kooperationen, Bestellungen und Tischreservierungen. Die App kann lokal im Browser laufen, oder zentral mit Supabase fuer alle Geraete.
+Statische Website fuer VIPs und Kooperationen im China Town Control. Bestellungen und Tischreservierungen sind als zusaetzliche operative Module enthalten. Die App kann lokal im Browser laufen, oder zentral mit Supabase fuer alle Geraete.
 
 ## Funktionen
 
@@ -10,9 +10,19 @@ Statische Website fuer VIPs, Kooperationen, Bestellungen und Tischreservierungen
 - Kooperationen mit Codewort, Vorteilen und Reminder
 - Bestellungen mit Inhalt, Zeit und Betrag
 - Tischreservierungen mit Zeit, Personen, Tisch und Anlass
-- Tabs fuer Heute, VIPs, Kooperationen, Bestellungen, Reservierungen und Archiv
+- Events mit Uhrzeit, Ort und Details
+- Rollen: Admin, Manager und Mitarbeiter
+- Heute-Tab fuer faellige VIPs, Kooperations-Reminder, heutige Bestellungen und Reservierungen
+- Kalender fuer VIP-Ablauf, Kooperations-Reminder, Bestellungen, Reservierungen und Events
+- Tabs fuer VIPs, Kooperationen, Bestellungen, Reservierungen und Archiv
 - Schnellbuttons fuer Status und VIP-Verlaengerung
 - lokaler Passwortschutz
+
+## Zugaenge
+
+- Admin: `ChinaSantiNRW` - darf anlegen, bearbeiten und loeschen
+- Manager: `ManagerNRWChina` - darf anlegen und bearbeiten, aber nicht loeschen
+- Mitarbeiter: `NRWChinaMitarbeiter` - darf nur neue Eintraege anlegen
 
 ## Supabase Setup
 
@@ -33,4 +43,3 @@ Die Seite laeuft auch ohne Supabase im lokalen Cache-Modus. Einfach `index.html`
 
 - Vercel fuer das statische Frontend
 - Supabase fuer die gemeinsame Datenbank
-

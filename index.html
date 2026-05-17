@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>China Town Control Center</title>
+    <title>China Town VIP & Kooperation Control</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <section class="login-gate" id="loginGate" aria-label="Passwortschutz">
       <div class="login-card">
         <div class="brand-seal small">CT</div>
-        <p class="hero-kicker">China Town Control</p>
+        <p class="hero-kicker">China Town VIP & Kooperation</p>
         <h2>Zugang</h2>
         <form id="loginForm">
           <label>
@@ -26,10 +26,11 @@
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">China Town Verwaltung</p>
+          <p class="eyebrow">China Town VIP & Kooperation</p>
           <h1>China Town Control</h1>
         </div>
         <div class="topbar-actions">
+          <span class="sync-pill" id="roleStatus">Rolle: --</span>
           <span class="sync-pill" id="syncStatus">Sync: --</span>
           <button class="ghost-button" id="exportButton" type="button" title="Daten exportieren">
             Export
@@ -52,13 +53,13 @@
         </div>
         <div class="hero-content">
           <div class="brand-seal">CT</div>
-          <p class="hero-kicker">VIPs, Kooperationen, Bestellungen & Reservierungen</p>
+          <p class="hero-kicker">VIPs & Kooperationen zentral kontrollieren</p>
           <h2>China Town</h2>
           <p class="hero-line">China Town - ist mit dem Essen da.</p>
           <div class="hero-actions">
             <a href="#entryForm" data-type-jump="VIP">VIP eintragen</a>
-            <a href="#entryForm" data-type-jump="Bestellung">Bestellen</a>
-            <a href="#entryForm" data-type-jump="Reservierung">Reservieren</a>
+            <a href="#entryForm" data-type-jump="Kooperation">Kooperation eintragen</a>
+            <a href="#entryForm" data-type-jump="Bestellung">Bestellung</a>
           </div>
         </div>
       </section>
@@ -80,6 +81,10 @@
           <span>Reservierungen</span>
           <strong id="reservationCount">0</strong>
         </article>
+        <article class="metric">
+          <span>Events</span>
+          <strong id="eventCount">0</strong>
+        </article>
       </section>
 
       <section class="workspace">
@@ -98,6 +103,7 @@
               <option value="Kooperation">Kooperation</option>
               <option value="Bestellung">Bestellung</option>
               <option value="Reservierung">Tischreservierung</option>
+              <option value="Event">Event</option>
             </select>
           </label>
 
@@ -181,6 +187,24 @@
             </label>
           </div>
 
+          <div class="event-fields" id="eventFields">
+            <div class="split">
+              <label>
+                Datum & Uhrzeit
+                <input id="eventTimeInput" type="datetime-local" />
+              </label>
+              <label>
+                Ort / Bereich
+                <input id="eventLocationInput" type="text" placeholder="z. B. China Town, VIP Lounge" />
+              </label>
+            </div>
+
+            <label>
+              Event-Details
+              <textarea id="eventDetailsInput" rows="3" placeholder="Was ist geplant, wer ist dabei, was muss vorbereitet werden?"></textarea>
+            </label>
+          </div>
+
           <div class="split">
             <label>
               Start
@@ -230,6 +254,7 @@
             <button class="tab-button" type="button" data-tab="Kooperation">Kooperationen</button>
             <button class="tab-button" type="button" data-tab="Bestellung">Bestellungen</button>
             <button class="tab-button" type="button" data-tab="Reservierung">Reservierungen</button>
+            <button class="tab-button" type="button" data-tab="Event">Events</button>
             <button class="tab-button" type="button" data-tab="Archiv">Archiv</button>
           </div>
           <div class="panel-tools">
@@ -243,6 +268,7 @@
               <option value="Kooperation">Kooperation</option>
               <option value="Bestellung">Bestellung</option>
               <option value="Reservierung">Reservierung</option>
+              <option value="Event">Event</option>
               <option value="Reminder">Reminder</option>
               <option value="Bald">Bald ablaufend</option>
               <option value="Abgelaufen">Abgelaufen</option>
@@ -279,6 +305,17 @@
             <span>Lege links den ersten China-Town-Eintrag an.</span>
           </div>
         </section>
+      </section>
+
+      <section class="calendar-panel" aria-label="Kalender">
+        <div class="calendar-head">
+          <div>
+            <p class="eyebrow">Kalender</p>
+            <h2>Termine & Faelligkeiten</h2>
+          </div>
+          <span class="sync-pill" id="calendarCount">0 Eintraege</span>
+        </div>
+        <div class="calendar-list" id="calendarList"></div>
       </section>
     </main>
 

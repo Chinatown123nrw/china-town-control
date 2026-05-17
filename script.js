@@ -3,7 +3,13 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const storageKey = "ct-control-center";
 const legacyStorageKey = "ct-vip-kooperationen";
 const localCacheKey = "ct-control-cache";
-const businessTypes = ["VIP", "Kooperation", "Bestellung", "Reservierung"];
+const businessTypes = ["VIP", "Kooperation", "Bestellung", "Reservierung", "Event"];
+
+const accessRoles = {
+  ChinaSantiNRW: "Admin",
+  ManagerNRWChina: "Manager",
+  NRWChinaMitarbeiter: "Mitarbeiter",
+};
 
 const vipPackages = {
   Silber: {
@@ -37,6 +43,9 @@ const fields = {
   guestCount: document.querySelector("#guestCountInput"),
   table: document.querySelector("#tableInput"),
   occasion: document.querySelector("#occasionInput"),
+  eventTime: document.querySelector("#eventTimeInput"),
+  eventLocation: document.querySelector("#eventLocationInput"),
+  eventDetails: document.querySelector("#eventDetailsInput"),
   status: document.querySelector("#statusInput"),
   start: document.querySelector("#startInput"),
   end: document.querySelector("#endInput"),
@@ -49,6 +58,7 @@ const typePanels = {
   Kooperation: document.querySelector("#coopFields"),
   Bestellung: document.querySelector("#orderFields"),
   Reservierung: document.querySelector("#reservationFields"),
+  Event: document.querySelector("#eventFields"),
 };
 
 const packageInfo = document.querySelector("#packageInfo");
@@ -62,6 +72,9 @@ const importInput = document.querySelector("#importInput");
 const cursorGlow = document.querySelector(".cursor-glow");
 const tabButtons = document.querySelectorAll("[data-tab]");
 const syncStatus = document.querySelector("#syncStatus");
+const roleStatus = document.querySelector("#roleStatus");
+const calendarList = document.querySelector("#calendarList");
+const calendarCount = document.querySelector("#calendarCount");
 const loginGate = document.querySelector("#loginGate");
 const loginForm = document.querySelector("#loginForm");
 const passwordInput = document.querySelector("#passwordInput");
@@ -69,8 +82,9 @@ const loginError = document.querySelector("#loginError");
 
 let records = [];
 let activeTab = "Heute";
-const accessPassword = "ChinaSantiNRW";
 const accessKey = "ct-control-access";
+const roleKey = "ct-control-role";
+let currentRole = "";
 let supabaseClient = null;
 let syncMode = "local";
 let recordsLoaded = false;
@@ -79,16 +93,37 @@ function hasAccess() {
   return sessionStorage.getItem(accessKey) === "ok";
 }
 
-function unlockApp() {
+function unlockApp(role = sessionStorage.getItem(roleKey) || "Admin") {
   sessionStorage.setItem(accessKey, "ok");
+  sessionStorage.setItem(roleKey, role);
+  currentRole = role;
   loginGate.hidden = true;
   document.body.classList.remove("is-locked");
+  updateRoleUi();
 }
 
 function lockApp() {
   loginGate.hidden = false;
   document.body.classList.add("is-locked");
+  currentRole = "";
+  updateRoleUi();
   passwordInput.focus();
+}
+
+function canEditRecords() {
+  return currentRole === "Admin" || currentRole === "Manager";
+}
+
+function canDeleteRecords() {
+  return currentRole === "Admin";
+}
+
+function updateRoleUi() {
+  if (roleStatus) {
+    roleStatus.textContent = currentRole ? `Rolle: ${currentRole}` : "Rolle: --";
+  }
+
+  document.body.dataset.role = currentRole || "";
 }
 
 function loadCachedRecords() {
@@ -282,6 +317,9 @@ function normalizeRecord(record) {
     guestCount: Math.max(1, Number(record.guestCount) || 2),
     table: record.table || "",
     occasion: record.occasion || "",
+    eventTime: record.eventTime || "",
+    eventLocation: record.eventLocation || "",
+    eventDetails: record.eventDetails || "",
     status: record.status || defaultStatus(type),
     start,
     end,
@@ -341,9 +379,15 @@ function isArchived(record) {
 
 function isTodayRecord(record) {
   const today = todayIso();
+  const status = computedStatus(record);
+  const days = dateDiff(record.end);
+
   return (
+    (record.type === "VIP" && status === "Aktiv" && days >= 0 && days <= 3) ||
+    (record.type === "Kooperation" && !isArchived(record) && needsReminder(record)) ||
     (record.type === "Bestellung" && record.orderTime?.slice(0, 10) === today && !isArchived(record)) ||
-    (record.type === "Reservierung" && record.reservationTime?.slice(0, 10) === today && !isArchived(record))
+    (record.type === "Reservierung" && record.reservationTime?.slice(0, 10) === today && !isArchived(record)) ||
+    (record.type === "Event" && record.eventTime?.slice(0, 10) === today && !isArchived(record))
   );
 }
 
@@ -431,6 +475,11 @@ function syncTypeFields() {
     if (!fields.reservationTime.value) fields.reservationTime.value = nowDateTimeLocal(60);
   }
 
+  if (type === "Event") {
+    fields.end.value = fields.start.value;
+    if (!fields.eventTime.value) fields.eventTime.value = nowDateTimeLocal(120);
+  }
+
   renderPackageInfo();
 }
 
@@ -445,6 +494,8 @@ function searchableText(record) {
     record.orderPrice,
     record.table,
     record.occasion,
+    record.eventLocation,
+    record.eventDetails,
     computedStatus(record),
     record.contact,
     record.notes,
@@ -482,6 +533,7 @@ function filteredRecords() {
 function displaySortDate(record) {
   if (record.type === "Bestellung") return record.orderTime || record.start;
   if (record.type === "Reservierung") return record.reservationTime || record.start;
+  if (record.type === "Event") return record.eventTime || record.start;
   return record.end || record.start;
 }
 
@@ -498,6 +550,9 @@ function renderStats() {
   document.querySelector("#reservationCount").textContent = records.filter(
     (record) => record.type === "Reservierung" && isOpenWork(record),
   ).length;
+  document.querySelector("#eventCount").textContent = records.filter(
+    (record) => record.type === "Event" && isOpenWork(record),
+  ).length;
 }
 
 function renderPickupButtons(container, record) {
@@ -508,6 +563,11 @@ function renderPickupButtons(container, record) {
 
   if (record.type === "Reservierung") {
     renderQuickStatus(container, record, ["Bestaetigt", "Erschienen", "No Show"]);
+    return;
+  }
+
+  if (record.type === "Event") {
+    renderQuickStatus(container, record, ["Offen", "Bestaetigt", "Erledigt", "Storniert"]);
     return;
   }
 
@@ -535,6 +595,7 @@ function renderPickupButtons(container, record) {
       ? `Woche ${index + 1} abgeholt am ${formatDate(pickupDate)}`
       : `Woche ${index + 1} offen`;
     button.setAttribute("aria-label", button.title);
+    button.disabled = !canEditRecords();
     button.addEventListener("click", () => {
       const nextDates = record.pickupDates.slice();
       nextDates[index] = nextDates[index] ? "" : todayIso();
@@ -560,6 +621,7 @@ function renderPickupButtons(container, record) {
     button.type = "button";
     button.textContent = label;
     button.className = "mini-action-button";
+    button.disabled = !canEditRecords();
     button.addEventListener("click", handler);
     tools.append(button);
   });
@@ -585,6 +647,7 @@ function renderQuickStatus(container, record, statuses) {
     button.type = "button";
     button.className = status === computedStatus(record) ? "quick-status active" : "quick-status";
     button.textContent = status;
+    button.disabled = !canEditRecords();
     button.addEventListener("click", () => updateRecord(record.id, { status }));
     group.append(button);
   });
@@ -601,6 +664,11 @@ function renderQuickStatus(container, record, statuses) {
 }
 
 async function updateRecord(id, patch) {
+  if (!canEditRecords()) {
+    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    return;
+  }
+
   const current = records.find((record) => record.id === id) || {};
   const nextRecord = normalizeRecord({ ...current, ...patch, id });
 
@@ -635,6 +703,7 @@ function getTypeLabel(record) {
   if (record.type === "VIP") return `${record.packageName}, ${record.months}M`;
   if (record.type === "Kooperation") return `Code: ${record.codeWord || "-"}`;
   if (record.type === "Bestellung") return "Bestellung";
+  if (record.type === "Event") return "Event";
   return `${record.guestCount} Personen`;
 }
 
@@ -644,6 +713,7 @@ function getDateLabel(record) {
   }
   if (record.type === "Bestellung") return `Zeit: ${formatDateTime(record.orderTime)}`;
   if (record.type === "Reservierung") return `Reserviert: ${formatDateTime(record.reservationTime)}`;
+  if (record.type === "Event") return `Event: ${formatDateTime(record.eventTime)}`;
   return `Ablauf: ${formatDate(record.end)}`;
 }
 
@@ -654,6 +724,9 @@ function getDetailLabel(record) {
   if (record.type === "Kooperation") return record.advantages || "-";
   if (record.type === "Bestellung") {
     return [record.orderItems, record.orderPrice ? `Betrag: ${record.orderPrice}` : ""].filter(Boolean).join(" | ") || "-";
+  }
+  if (record.type === "Event") {
+    return [record.eventLocation, record.eventDetails].filter(Boolean).join(" | ") || "-";
   }
   return [record.table, record.occasion].filter(Boolean).join(" | ") || "-";
 }
@@ -692,6 +765,9 @@ function renderRows() {
     }
     renderPickupButtons(row.querySelector(".pickup-cell"), record);
 
+    row.querySelector(".name-button").disabled = !canEditRecords();
+    row.querySelector(".edit-button").disabled = !canEditRecords();
+    row.querySelector(".delete-button").disabled = !canDeleteRecords();
     row.querySelector(".name-button").addEventListener("click", () => fillForm(record));
     row.querySelector(".edit-button").addEventListener("click", () => fillForm(record));
     row.querySelector(".delete-button").addEventListener("click", () => deleteRecord(record.id));
@@ -700,12 +776,108 @@ function renderRows() {
   });
 }
 
+function calendarItems() {
+  return records
+    .flatMap((record) => {
+      const items = [];
+      if (record.type === "VIP" && !isArchived(record)) {
+        items.push({
+          date: record.end,
+          type: "VIP",
+          title: record.name,
+          detail: `VIP Ablauf ${record.packageName}, ${record.months}M`,
+        });
+      }
+
+      if (record.type === "Kooperation" && !isArchived(record)) {
+        items.push({
+          date: record.reminder || record.end,
+          type: "Kooperation",
+          title: record.name,
+          detail: `Reminder ${record.codeWord ? `Code: ${record.codeWord}` : ""}`.trim(),
+        });
+      }
+
+      if (record.type === "Bestellung" && record.orderTime && !isArchived(record)) {
+        items.push({
+          date: record.orderTime,
+          type: "Bestellung",
+          title: record.name,
+          detail: record.orderItems || "Bestellung",
+        });
+      }
+
+      if (record.type === "Reservierung" && record.reservationTime && !isArchived(record)) {
+        items.push({
+          date: record.reservationTime,
+          type: "Reservierung",
+          title: record.name,
+          detail: [record.guestCount ? `${record.guestCount} Personen` : "", record.table].filter(Boolean).join(" | "),
+        });
+      }
+
+      if (record.type === "Event" && record.eventTime && !isArchived(record)) {
+        items.push({
+          date: record.eventTime,
+          type: "Event",
+          title: record.name,
+          detail: [record.eventLocation, record.eventDetails].filter(Boolean).join(" | "),
+        });
+      }
+
+      return items;
+    })
+    .filter((item) => item.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+function renderCalendar() {
+  if (!calendarList) return;
+
+  const items = calendarItems();
+  calendarList.replaceChildren();
+  if (calendarCount) {
+    calendarCount.textContent = `${items.length} Eintraege`;
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-empty";
+    empty.textContent = "Keine Termine eingetragen.";
+    calendarList.append(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "calendar-item";
+
+    const date = document.createElement("strong");
+    date.textContent = item.date.includes("T") ? formatDateTime(item.date) : formatDate(item.date);
+
+    const title = document.createElement("span");
+    title.textContent = `${item.type}: ${item.title}`;
+
+    const detail = document.createElement("small");
+    detail.textContent = item.detail || "-";
+
+    card.append(date, title, detail);
+    calendarList.append(card);
+  });
+}
+
 function render() {
   renderStats();
   renderRows();
+  renderCalendar();
 }
 
 function fillForm(record) {
+  if (!canEditRecords()) {
+    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    return;
+  }
+
   fields.id.value = record.id;
   fields.type.value = record.type;
   fields.name.value = record.name;
@@ -721,6 +893,9 @@ function fillForm(record) {
   fields.guestCount.value = record.guestCount;
   fields.table.value = record.table;
   fields.occasion.value = record.occasion;
+  fields.eventTime.value = record.eventTime;
+  fields.eventLocation.value = record.eventLocation;
+  fields.eventDetails.value = record.eventDetails;
   fields.status.value = record.status;
   fields.start.value = record.start;
   fields.end.value = record.end;
@@ -742,11 +917,19 @@ function resetForm(type = "VIP") {
   fields.reminder.value = type === "Kooperation" ? addMonthIso(fields.start.value) : "";
   fields.orderTime.value = type === "Bestellung" ? nowDateTimeLocal(30) : "";
   fields.reservationTime.value = type === "Reservierung" ? nowDateTimeLocal(60) : "";
+  fields.eventTime.value = type === "Event" ? nowDateTimeLocal(120) : "";
+  fields.eventLocation.value = "";
+  fields.eventDetails.value = "";
   fields.status.value = defaultStatus(type);
   syncTypeFields();
 }
 
 async function deleteRecord(id) {
+  if (!canDeleteRecords()) {
+    alert("Nur Admin darf Eintraege loeschen.");
+    return;
+  }
+
   const record = records.find((item) => item.id === id);
   if (!record || !confirm(`${record.name} loeschen?`)) return;
 
@@ -784,6 +967,9 @@ function collectFormRecord() {
     guestCount: fields.guestCount.value,
     table: fields.table.value.trim(),
     occasion: fields.occasion.value.trim(),
+    eventTime: fields.eventTime.value,
+    eventLocation: fields.eventLocation.value.trim(),
+    eventDetails: fields.eventDetails.value.trim(),
     status: fields.status.value,
     start,
     end: type === "VIP" ? vipEndIso(start, months) : fields.end.value,
@@ -796,6 +982,12 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const nextRecord = collectFormRecord();
+  const isExistingRecord = records.some((record) => record.id === nextRecord.id);
+  if (isExistingRecord && !canEditRecords()) {
+    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    return;
+  }
+
   records = records.some((record) => record.id === nextRecord.id)
     ? records.map((record) => (record.id === nextRecord.id ? nextRecord : record))
     : [...records, nextRecord];
@@ -848,10 +1040,11 @@ document.addEventListener("pointermove", (event) => {
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  if (passwordInput.value === accessPassword) {
+  const role = accessRoles[passwordInput.value];
+  if (role) {
     loginError.textContent = "";
     passwordInput.value = "";
-    unlockApp();
+    unlockApp(role);
     return;
   }
 
@@ -870,6 +1063,12 @@ exportButton.addEventListener("click", () => {
 });
 
 importInput.addEventListener("change", async () => {
+  if (currentRole !== "Admin") {
+    alert("Nur Admin darf Daten importieren.");
+    importInput.value = "";
+    return;
+  }
+
   const [file] = importInput.files;
   if (!file) return;
 
