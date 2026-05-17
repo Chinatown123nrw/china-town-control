@@ -21,7 +21,7 @@ Statische Website für VIPs und Kooperationen im China Town Control. Bestellunge
 ## Zugänge
 
 - Admin: `ChinaSantiNRW` - darf anlegen, bearbeiten und löschen
-- Manager: `ManagerNRWChina` - darf anlegen und bearbeiten, aber nicht löschen
+- Manager: `ManagerTownNRW` - darf anlegen und bearbeiten, aber nicht löschen
 - Mitarbeiter: `NRWChinaMitarbeiter` - darf nur neue Einträge anlegen
 
 ## Supabase Setup

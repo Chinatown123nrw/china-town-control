@@ -7,6 +7,7 @@ const businessTypes = ["VIP", "Kooperation", "Bestellung", "Reservierung", "Even
 
 const accessRoles = {
   ChinaSantiNRW: "Admin",
+  ManagerTownNRW: "Manager",
   ManagerNRWChina: "Manager",
   NRWChinaMitarbeiter: "Mitarbeiter",
 };
