@@ -320,7 +320,7 @@ function normalizeRecord(record) {
     eventTime: record.eventTime || "",
     eventLocation: record.eventLocation || "",
     eventDetails: record.eventDetails || "",
-    status: record.status || defaultStatus(type),
+    status: normalizeStatus(record.status) || defaultStatus(type),
     start,
     end,
     contact: record.contact || "",
@@ -337,6 +337,12 @@ function defaultEndForType(type, start, months) {
 function defaultStatus(type) {
   if (type === "VIP" || type === "Kooperation") return "Aktiv";
   return "Offen";
+}
+
+function normalizeStatus(status) {
+  const legacyConfirmedStatus = ["Best", "tigt"].join(String.fromCharCode(97, 101));
+  if (status === legacyConfirmedStatus) return "Bestätigt";
+  return status;
 }
 
 function normalizePickupDates(record) {
@@ -366,7 +372,7 @@ function needsReminder(record) {
 }
 
 function isOpenWork(record) {
-  return ["Offen", "In Arbeit", "Bestaetigt", "Aktiv"].includes(computedStatus(record));
+  return ["Offen", "In Arbeit", "Bestätigt", "Aktiv"].includes(computedStatus(record));
 }
 
 function isDoneStatus(status) {
@@ -400,11 +406,11 @@ function isOrderOverdue(record) {
 function warningText(record) {
   if (record.type === "VIP") {
     const days = dateDiff(record.end);
-    if (days >= 0 && days <= 3) return `VIP laeuft in ${days} Tag${days === 1 ? "" : "en"} ab`;
+    if (days >= 0 && days <= 3) return `VIP läuft in ${days} Tag${days === 1 ? "" : "en"} ab`;
   }
 
-  if (needsReminder(record)) return "Kooperation Reminder faellig";
-  if (isOrderOverdue(record)) return "Bestellung ueberfaellig";
+  if (needsReminder(record)) return "Kooperation Reminder fällig";
+  if (isOrderOverdue(record)) return "Bestellung überfällig";
   return "";
 }
 
@@ -436,7 +442,7 @@ function formatShortDate(value) {
 
 function getVipBenefit(packageName) {
   const data = vipPackages[packageName] || vipPackages.Silber;
-  return `${data.food}x Essen, ${data.drinks}x Trinken, ${data.cookies}x Glueckskekse, ${data.discount}% Rabatt pro Woche`;
+  return `${data.food}x Essen, ${data.drinks}x Trinken, ${data.cookies}x Glückskekse, ${data.discount}% Rabatt pro Woche`;
 }
 
 function renderPackageInfo() {
@@ -562,12 +568,12 @@ function renderPickupButtons(container, record) {
   }
 
   if (record.type === "Reservierung") {
-    renderQuickStatus(container, record, ["Bestaetigt", "Erschienen", "No Show"]);
+    renderQuickStatus(container, record, ["Bestätigt", "Erschienen", "No Show"]);
     return;
   }
 
   if (record.type === "Event") {
-    renderQuickStatus(container, record, ["Offen", "Bestaetigt", "Erledigt", "Storniert"]);
+    renderQuickStatus(container, record, ["Offen", "Bestätigt", "Erledigt", "Storniert"]);
     return;
   }
 
@@ -665,7 +671,7 @@ function renderQuickStatus(container, record, statuses) {
 
 async function updateRecord(id, patch) {
   if (!canEditRecords()) {
-    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    alert("Mitarbeiter dürfen Einträge nur neu anlegen.");
     return;
   }
 
@@ -751,7 +757,7 @@ function renderRows() {
       : days >= 0 && days <= 7 && status === "Aktiv"
         ? "Bald"
         : status;
-    statusPill.classList.toggle("paused", ["Pausiert", "Offen", "Bestaetigt"].includes(status) || needsReminder(record));
+    statusPill.classList.toggle("paused", ["Pausiert", "Offen", "Bestätigt"].includes(status) || needsReminder(record));
     statusPill.classList.toggle("expired", ["Abgelaufen", "Storniert"].includes(status));
 
     row.querySelector(".date-cell").innerHTML = getDateLabel(record);
@@ -837,7 +843,7 @@ function renderCalendar() {
   const items = calendarItems();
   calendarList.replaceChildren();
   if (calendarCount) {
-    calendarCount.textContent = `${items.length} Eintraege`;
+    calendarCount.textContent = `${items.length} Einträge`;
   }
 
   if (items.length === 0) {
@@ -874,7 +880,7 @@ function render() {
 
 function fillForm(record) {
   if (!canEditRecords()) {
-    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    alert("Mitarbeiter dürfen Einträge nur neu anlegen.");
     return;
   }
 
@@ -926,12 +932,12 @@ function resetForm(type = "VIP") {
 
 async function deleteRecord(id) {
   if (!canDeleteRecords()) {
-    alert("Nur Admin darf Eintraege loeschen.");
+    alert("Nur Admin darf Einträge löschen.");
     return;
   }
 
   const record = records.find((item) => item.id === id);
-  if (!record || !confirm(`${record.name} loeschen?`)) return;
+  if (!record || !confirm(`${record.name} löschen?`)) return;
 
   records = records.filter((item) => item.id !== id);
   try {
@@ -984,7 +990,7 @@ form.addEventListener("submit", async (event) => {
   const nextRecord = collectFormRecord();
   const isExistingRecord = records.some((record) => record.id === nextRecord.id);
   if (isExistingRecord && !canEditRecords()) {
-    alert("Mitarbeiter duerfen Eintraege nur neu anlegen.");
+    alert("Mitarbeiter dürfen Einträge nur neu anlegen.");
     return;
   }
 

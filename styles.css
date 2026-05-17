@@ -276,6 +276,34 @@ button:disabled,
   background: linear-gradient(135deg, var(--red), #e4314e);
 }
 
+.announcement-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(139, 0, 0, 0.3), rgba(17, 17, 17, 0.78));
+  box-shadow: var(--shadow);
+}
+
+.announcement-banner strong {
+  color: var(--gold-soft);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.announcement-banner p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 .file-button {
   position: relative;
   overflow: hidden;
@@ -1069,6 +1097,7 @@ body.is-empty table {
 
   .topbar,
   .topbar-actions,
+  .announcement-banner,
   .panel-tools,
   .split {
     align-items: stretch;
